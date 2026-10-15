@@ -1,0 +1,7 @@
+{"eras":[
+ {"id":1,"name":"Стоянка","pop":10},
+ {"id":2,"name":"Деревня","pop":20,"needs":{"building":"chief_hut","level":2}},
+ {"id":3,"name":"Посёлок","pop":35,"needs":{"skill_points_spent":6}},
+ {"id":4,"name":"Крепость","pop":50,"needs":{"building":"forge","level":2}},
+ {"id":5,"name":"Город племени","pop":70,"needs":{"all_branches_tier":2}}
+]}

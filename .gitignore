@@ -1,0 +1,8 @@
+build/
+build-web/
+android/app/build/
+android/app/.cxx/
+android/app/src/main/cpp/SDL/
+android/app/src/main/assets/
+android/.gradle/
+android/local.properties

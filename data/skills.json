@@ -1,0 +1,11 @@
+{"points_per_era":2,"skills":[
+ {"id":"throwing_spears","branch":"hunters","tier":1,"name":"Метательные копья","desc":"Копья бьют дальше и сильнее","cost":1,"unlocks":{"unit":"javelin"}},
+ {"id":"siege_craft","branch":"hunters","tier":2,"name":"Осадное дело","desc":"Катапульта и таран","cost":2,"requires":["throwing_spears"],"unlocks":{"building":"siege_workshop"}},
+ {"id":"war_totems","branch":"hunters","tier":3,"name":"Боевые тотемы","desc":"Бонус к урону бойцов рядом","cost":2,"requires":["siege_craft"]},
+ {"id":"fire_kitchen","branch":"economy","tier":1,"name":"Огонь и кухня","desc":"Больше еды с каждого повара","cost":1,"unlocks":{"building":"forge"}},
+ {"id":"taming","branch":"economy","tier":2,"name":"Приручение","desc":"Загон, мамонты-носильщики","cost":2,"requires":["fire_kitchen"],"unlocks":{"building":"pen"}},
+ {"id":"winter_stores","branch":"economy","tier":3,"name":"Запасы на зиму","desc":"Склад вмещает вдвое больше","cost":2,"requires":["taming"]},
+ {"id":"healing_herbs","branch":"spirits","tier":1,"name":"Лечебные травы","desc":"Исцеление стоит дешевле","cost":1},
+ {"id":"rain_dance","branch":"spirits","tier":2,"name":"Пляска дождя","desc":"Защита от засухи и болезней","cost":2,"requires":["healing_herbs"]},
+ {"id":"ancestor_spirit","branch":"spirits","tier":3,"name":"Дух предков","desc":"Воскрешение павшего вождя","cost":2,"requires":["rain_dance"]}
+]}

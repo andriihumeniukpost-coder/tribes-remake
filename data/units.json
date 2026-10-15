@@ -1,0 +1,10 @@
+{"units":[
+ {"id":"villager","name":"Житель","hp":30,"speed":40,"dmg":2,"range":1,"reload":1},
+ {"id":"spearman","name":"Копейщик","hp":45,"speed":38,"dmg":7,"range":1,"reload":1.0,"weapon":"spear","build_in":"armoury","cost":{"wood":10,"food":10}},
+ {"id":"javelin","name":"Метатель","hp":35,"speed":42,"dmg":6,"range":5,"reload":1.3,"weapon":"javelin","needs_skill":"throwing_spears","build_in":"armoury","cost":{"wood":15,"food":10}},
+ {"id":"slinger","name":"Пращник","hp":30,"speed":44,"dmg":4,"range":6,"reload":1.5,"weapon":"sling"},
+ {"id":"clubman","name":"Дубинщик","hp":70,"speed":32,"dmg":11,"range":1,"reload":1.2,"weapon":"spiked_club"},
+ {"id":"catapult","name":"Катапульта","hp":120,"speed":14,"dmg":40,"range":10,"min_range":3,"splash":2,"vs_buildings":2.5,"reload":3.0,"needs_skill":"siege_craft","build_in":"siege_workshop","cost":{"wood":40,"stone":30}},
+ {"id":"ram","name":"Таран","hp":200,"speed":18,"dmg":55,"range":1,"reload":2.5,"vs_buildings":4.0,"needs_skill":"siege_craft","build_in":"siege_workshop","cost":{"wood":50,"stone":20}},
+ {"id":"war_mammoth","name":"Боевой мамонт","hp":400,"speed":22,"dmg":30,"range":1,"reload":1.5,"needs_skill":"taming","build_in":"pen","cost":{"wood":40,"food":40}}
+]}
