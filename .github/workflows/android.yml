@@ -13,11 +13,16 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - name: Установка NDK и CMake
         run: |
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1" "ndk;26.1.10909125"
+          SDK="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-/usr/local/lib/android/sdk}}"
+          echo "SDK: $SDK"
+          SDKMGR="$(ls -d "$SDK"/cmdline-tools/*/bin 2>/dev/null | head -n1)/sdkmanager"
+          if [ ! -x "$SDKMGR" ]; then SDKMGR="$(command -v sdkmanager)"; fi
+          echo "sdkmanager: $SDKMGR"
+          yes | "$SDKMGR" --sdk_root="$SDK" --licenses >/dev/null || true
+          "$SDKMGR" --sdk_root="$SDK" "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1" "ndk;26.1.10909125"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
       - name: Исходники SDL2
         run: git clone --depth 1 --branch release-2.30.x https://github.com/libsdl-org/SDL.git android/app/src/main/cpp/SDL
       - name: Данные и шрифты в APK
