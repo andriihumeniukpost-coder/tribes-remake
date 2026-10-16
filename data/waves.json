@@ -1,7 +1,0 @@
-{"waves":[
- {"at":90,"units":{"clubman":2}},
- {"at":150,"units":{"clubman":2,"slinger":2}},
- {"at":220,"units":{"clubman":3,"slinger":3,"spearman":2}},
- {"at":300,"units":{"clubman":4,"slinger":4,"spearman":3}},
- {"at":400,"units":{"clubman":6,"slinger":4,"spearman":4}}
-]}

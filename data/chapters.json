@@ -1,7 +1,22 @@
 {"chapters":[
- {"id":6,"title":"Пепел бойни","start_era":2,"intro":"Племя победило, но дом сгорел. Нужно построить новый."},
- {"id":7,"title":"Кузнец из дальних гор","start_era":3,"intro":"Чужак приносит тайну огня, за ним идут преследователи."},
- {"id":8,"title":"Война за реку","start_era":3,"intro":"Договориться с соседями или идти войной."},
- {"id":9,"title":"Осада крепости","start_era":4,"intro":"Враг привёл катапульты. Строй стены."},
- {"id":10,"title":"Дух предков","start_era":5,"intro":"Вождь пал. Племя должно вернуть его."}
+ {"id":1,"title":"Первое стойбище","intro":"Людоеды приходят к вашей деревне. Отбейтесь, развивайтесь и ударьте по их стойбищу.","attack_era":3,
+  "camps":[{"x":30,"y":7,"hp":400,"garrison":{"clubman":3,"slinger":2}}],
+  "waves":[
+   {"at":90,"units":{"clubman":2}},
+   {"at":150,"units":{"clubman":2,"slinger":2}},
+   {"at":220,"units":{"clubman":3,"slinger":3,"spearman":2}},
+   {"at":300,"units":{"clubman":4,"slinger":4,"spearman":3}},
+   {"at":400,"units":{"clubman":6,"slinger":4,"spearman":4}}
+  ]},
+ {"id":2,"title":"Земля у реки","intro":"Стойбище взято, и теперь это ваша земля. Дальше за рекой и на юге есть ещё два стойбища.","attack_era":3,
+  "camps":[
+   {"x":5,"y":21,"hp":500,"garrison":{"clubman":4,"spearman":2}},
+   {"x":33,"y":22,"hp":450,"garrison":{"slinger":4,"clubman":2}}
+  ],
+  "waves":[
+   {"at":60,"units":{"clubman":3,"slinger":2}},
+   {"at":130,"units":{"clubman":4,"slinger":3,"spearman":2}},
+   {"at":210,"units":{"clubman":5,"slinger":4,"spearman":3}},
+   {"at":300,"units":{"clubman":6,"slinger":5,"spearman":4}}
+  ]}
 ]}

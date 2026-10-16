@@ -27,6 +27,7 @@ bool Game::init(const std::string& dir) {
     for (int x = 17; x < 24; x++) for (int y = 12; y < 19; y++) map[x][y] = GRASS;
     addBuilding(*data.building("chief_hut"), 19, 14);
     for (int i = 0; i < 4; i++) spawnVillager();
+    loadChapter(0);
     return true;
 }
 std::string Game::stats() const {
@@ -34,7 +35,8 @@ std::string Game::stats() const {
     o += " warriors=" + std::to_string(soldierCount(0)) + " enemies=" + std::to_string(soldierCount(1));
     for (auto& s : soldiers) o += "\n  " + s.def->id + " f" + std::to_string(s.faction) + " hp=" + std::to_string((int)s.hp) + " at(" + std::to_string((int)(s.x / TS)) + "," + std::to_string((int)(s.y / TS)) + ")";
     for (auto& b : buildings) if (!b.alive || b.hp < b.def->hp) o += "\n  bld " + b.def->id + " hp=" + std::to_string((int)b.hp) + (b.alive ? "" : " (руины)");
-    o += "\n  camp hp=" + std::to_string((int)camp.hp) + (camp.captured ? " (взято)" : "") + " chapter=" + std::to_string(chapter) + " attack=" + (attackOrder ? "1" : "0");
+    o += "\n  глава " + std::to_string(chapter().id) + " attack=" + (attackOrder ? "1" : "0");
+    for (size_t i = 0; i < camps.size(); i++) o += "\n  camp" + std::to_string(i) + " hp=" + std::to_string((int)camps[i].hp) + (camps[i].captured ? " (взято)" : "");
     return o;
 }
 void Game::debugUnlock() {
@@ -176,14 +178,43 @@ void Game::damage(int kind, int idx, float amount) {
     if (kind == 0) soldiers[idx].hp -= amount;
     else if (kind == 1) villagers[idx].hp -= amount;
     else if (kind == 2) buildings[idx].hp -= amount;
-    else if (kind == 3) camp.hp -= amount;
+    else if (kind == 3) camps[idx].hp -= amount;
 }
-void Game::captureCamp() {
-    camp.captured = true; attackOrder = false;
-    if (const BuildingDef* h = data.building("hut")) addBuilding(*h, camp.x, camp.y);
-    chapter = 2;
-    say("Стойбище взято! Глава 2");
+void Game::loadChapter(int idx) {
+    chapterIdx = idx; camps.clear(); nextWave = 0; chapterStart = gameTime; attackOrder = false;
+    for (auto& cd : chapter().camps) {
+        Camp c; c.x = cd.x; c.y = cd.y; c.hp = c.maxhp = cd.hp;
+        int ci = (int)camps.size();
+        // место стойбища: клетки под него делаем травой (если там не стоит наше здание)
+        for (int dx = 0; dx < 2; dx++) for (int dy = 0; dy < 2; dy++)
+            if (c.x + dx < MW && c.y + dy < MH && occ[c.x + dx][c.y + dy] < 0) map[c.x + dx][c.y + dy] = GRASS;
+        camps.push_back(c);
+        int k = 0;
+        for (auto& kv : cd.garrison) {
+            const UnitDef* u = data.unit(kv.first);
+            if (!u) continue;
+            for (int n = 0; n < kv.second; n++, k++) {
+                float px = (c.x + 1.0f) * TS + (k % 3 - 1) * 16.0f, py = (c.y + 2.5f) * TS + (k / 3) * 16.0f;
+                spawnSoldier(*u, px, py, 1);
+                Soldier& s = soldiers.back();
+                s.guard = ci; s.gx = (c.x + 1.0f) * TS; s.gy = (c.y + 1.0f) * TS;
+            }
+        }
+    }
+    say("Глава " + std::to_string(chapter().id) + ": " + chapter().title);
 }
+void Game::captureCamp(int idx) {
+    Camp& c = camps[idx];
+    c.captured = true; c.hp = 0; attackOrder = false;
+    if (const BuildingDef* h = data.building("hut")) addBuilding(*h, c.x, c.y);
+    // гарнизон без стойбища разбит
+    for (auto& s : soldiers) if (s.faction == 1 && s.guard == idx) s.hp = 0;
+    if (campsLeft() == 0) {
+        if (chapterIdx + 1 < (int)data.chapters.size()) { say("Все стойбища главы взяты!"); loadChapter(chapterIdx + 1); }
+        else { mode = Mode::Win; say("Все стойбища взяты!"); }
+    } else say("Стойбище взято! Осталось: " + std::to_string(campsLeft()) + ". Нажмите L1");
+}
+int Game::campsLeft() const { int n = 0; for (auto& c : camps) if (!c.captured) n++; return n; }
 void Game::cleanup() {
     soldiers.erase(std::remove_if(soldiers.begin(), soldiers.end(), [](const Soldier& s) { return s.hp <= 0; }), soldiers.end());
     villagers.erase(std::remove_if(villagers.begin(), villagers.end(), [](const Villager& v) { return v.hp <= 0; }), villagers.end());
@@ -234,13 +265,16 @@ void Game::updateSoldiers(float dt) {
             }
         } else {
             for (size_t j = 0; j < soldiers.size(); j++) if (soldiers[j].faction == 1) pick(0, (int)j, soldiers[j].x, soldiers[j].y, 0);
-            if (attackOrder && !camp.captured && camp.hp > 0)
-                pick(3, 0, (camp.x + 1.0f) * TS, (camp.y + 1.0f) * TS, 1.5f * TS);
+            if (attackOrder) for (size_t j = 0; j < camps.size(); j++) if (!camps[j].captured && camps[j].hp > 0)
+                pick(3, (int)j, (camps[j].x + 1.0f) * TS, (camps[j].y + 1.0f) * TS, 1.5f * TS);
         }
         // свой боец далеко от точки сбора — возвращается, даже если видит врага (при атаке не возвращается)
-        bool leashed = s.faction == 0 && !attackOrder && std::hypot(s.x - s.gx, s.y - s.gy) > leash;
+        // охранник стойбища не уходит дальше 12 клеток от него; свой боец — от точки сбора (при атаке не возвращается)
+        bool leashed = s.faction == 0 ? (!attackOrder && std::hypot(s.x - s.gx, s.y - s.gy) > leash)
+                                      : (s.guard >= 0 && std::hypot(s.x - s.gx, s.y - s.gy) > 12.0f * TS);
         if (best.kind < 0 || leashed) {
-            if (s.faction == 1) { const Placed& c = buildings[0]; moveTo(s, (c.x + 1.5f) * TS, (c.y + 1) * TS, dt, 2.0f * TS); }
+            if (s.faction == 1 && s.guard >= 0) moveTo(s, s.gx, s.gy, dt, 2.0f * TS);
+            else if (s.faction == 1) { const Placed& c = buildings[0]; moveTo(s, (c.x + 1.5f) * TS, (c.y + 1) * TS, dt, 2.0f * TS); }
             else moveTo(s, s.gx, s.gy, dt, 4.0f);
             continue;
         }
@@ -263,14 +297,14 @@ void Game::updateSoldiers(float dt) {
         fxs.push_back({ix, iy, 0.35f, u.splash > 0 ? u.splash * TS : 6.0f,
                        u.splash > 0 ? Color{230, 140, 60} : Color{255, 240, 160}});
     }
-    if (!camp.captured && camp.hp <= 0) captureCamp();
+    for (size_t i = 0; i < camps.size(); i++) if (!camps[i].captured && camps[i].hp <= 0) { captureCamp((int)i); break; }
     cleanup();
 }
 
 void Game::update(const Input& in, float dt) {
     if (toastT > 0) toastT -= dt;
     for (auto it = fxs.begin(); it != fxs.end();) { it->t -= dt; if (it->t <= 0) it = fxs.erase(it); else ++it; }
-    if (mode == Mode::Over) {
+    if (mode == Mode::Over || mode == Mode::Win) {
         if (in.pressed[SELECT] || in.pressed[START]) quit = true;
     } else if (mode == Mode::Play) {
         if (in.pressed[LEFT]) cx = std::max(0, cx - 1);
@@ -282,7 +316,7 @@ void Game::update(const Input& in, float dt) {
         if (in.pressed[SELECT]) tryAdvanceEra();
         if (in.pressed[START]) mode = Mode::Pause;
         if (in.pressed[A]) tryTrain();
-        if (in.pressed[L1] && era >= 3 && !camp.captured) {
+        if (in.pressed[L1] && era >= chapter().attackEra && campsLeft() > 0) {
             attackOrder = !attackOrder;
             say(attackOrder ? "Приказ: атаковать стойбище" : "Приказ: вернуться к вождю");
         }
@@ -291,7 +325,7 @@ void Game::update(const Input& in, float dt) {
         eraTimer += dt;
         if (eraTimer >= 8 && (int)villagers.size() < housing() && res["food"] >= 10) { eraTimer = 0; res["food"] -= 10; spawnVillager(); }
         gameTime += dt;
-        while (nextWave < data.waves.size() && gameTime >= data.waves[nextWave].at) { spawnWave(data.waves[nextWave]); nextWave++; }
+        while (nextWave < chapter().waves.size() && gameTime - chapterStart >= chapter().waves[nextWave].at) { spawnWave(chapter().waves[nextWave]); nextWave++; }
         updateVillagers(dt);
         updateSoldiers(dt);
     } else if (mode == Mode::Build) {
@@ -349,16 +383,16 @@ void Game::drawMap(Gfx& g) {
             g.fill(sx + 4, sy + h - 8, (int)((w - 8) * f), 4, {120, 220, 90});
         }
     }
-    if (!camp.captured) {
-        // стойбище людоедов: три шалаша и полоска здоровья (графика собственная, простые фигуры)
-        int sx = camp.x * TS - camX, sy = camp.y * TS - camY + 28;
+    for (auto& c : camps) if (!c.captured) {
+        // стойбище: три шалаша и полоска здоровья (графика собственная, простые фигуры)
+        int sx = c.x * TS - camX, sy = c.y * TS - camY + 28;
         for (int i = 0; i < 3; i++) {
             int hx = sx + i * 40, hy = sy + (i == 1 ? 0 : 20);
             g.fill(hx + 4, hy + 4, 30, 26, {120, 80, 50});
             g.fill(hx + 12, hy + 14, 14, 16, {50, 30, 20});
         }
         g.fill(sx, sy - 8, 100, 5, {60, 0, 0});
-        g.fill(sx, sy - 8, (int)(100 * std::max(0.0f, camp.hp) / camp.maxhp), 5, {220, 80, 60});
+        g.fill(sx, sy - 8, (int)(100 * std::max(0.0f, c.hp) / c.maxhp), 5, {220, 80, 60});
         g.text("Стойбище", sx + 50, sy - 22, 12, {255, 220, 200}, 1);
     }
     for (auto& v : villagers) {
@@ -400,10 +434,11 @@ void Game::drawHud(Gfx& g) {
     g.text("Жители " + std::to_string(villagers.size()) + "/" + std::to_string(housing()), 326, 5, 16, INK);
     g.text("Воины " + std::to_string(soldierCount(0)), 460, 5, 16, INK);
     g.text("Эпоха " + std::to_string(era), Gfx::W - 8, 5, 16, EDGE, 2);
-    std::string goal = camp.captured ? "Глава " + std::to_string(chapter) + ": стойбище взято"
-                     : era < 3 ? "Глава 1: отбить волны и развиваться до 3 эпохи"
-                     : attackOrder ? "Глава 1: идёт атака на стойбище людоедов"
-                     : "Глава 1: нажмите L1, чтобы атаковать стойбище людоедов";
+    std::string goal;
+    if (era < chapter().attackEra) goal = "Глава " + std::to_string(chapter().id) + ": отбить волны и развиваться до " + std::to_string(chapter().attackEra) + " эпохи";
+    else if (attackOrder) goal = "Атака на стойбища: осталось " + std::to_string(campsLeft());
+    else if (campsLeft() > 0) goal = "Осталось стойбищ: " + std::to_string(campsLeft()) + ". Нажмите L1, чтобы атаковать";
+    else goal = "Все стойбища взяты";
     g.text(goal, 8, 32, 14, EDGE);
     if (toastT > 0) { int w = g.textWidth(toast, 18) + 24; g.panel(Gfx::W / 2 - w / 2, 48, w, 30, PANEL, EDGE); g.text(toast, Gfx::W / 2, 52, 18, INK, 1); }
 }
@@ -415,11 +450,11 @@ void Game::drawHints(Gfx& g) {
         hs = {{"X", "Строить", {90, 140, 230}}, {"Y", "Умения", {240, 200, 70}}, {"SEL", "Эпоха", {200, 200, 200}}, {"STA", "Пауза", {200, 200, 200}}};
         int bi = buildingAt(cx, cy);
         if (bi >= 0 && !buildings[bi].def->trains.empty()) hs.push_back({"A", "Обучить", {90, 200, 110}});
-        if (era >= 3 && !camp.captured) hs.push_back({"L1", attackOrder ? "Отозвать" : "Атака", {230, 120, 60}});
+        if (era >= chapter().attackEra && campsLeft() > 0) hs.push_back({"L1", attackOrder ? "Отозвать" : "Атака", {230, 120, 60}});
     }
     else if (mode == Mode::Build) hs = {{"A", "Построить", {90, 200, 110}}, {"B", "Назад", {230, 90, 90}}};
     else if (mode == Mode::Skills) hs = {{"A", "Изучить", {90, 200, 110}}, {"B", "Назад", {230, 90, 90}}};
-    else if (mode == Mode::Over) hs = {{"SEL", "Выйти", {200, 200, 200}}};
+    else if (mode == Mode::Over || mode == Mode::Win) hs = {{"SEL", "Выйти", {200, 200, 200}}};
     else hs = {{"A", "Продолжить", {90, 200, 110}}, {"SEL", "Выйти", {200, 200, 200}}};
     int x = 20;
     for (auto& h : hs) { g.button(x, Gfx::H - 14, h.b, h.c); g.text(h.t, x + 16, Gfx::H - 23, 15, INK); x += 36 + g.textWidth(h.t, 15) + 22; }
@@ -467,6 +502,12 @@ void Game::draw(Gfx& g) {
         g.fill(0, 0, Gfx::W, Gfx::H, {0, 0, 0, 170});
         g.text("Племя пало", Gfx::W / 2, 170, 40, {230, 90, 70}, 1);
         g.text("Вождь погиб на волне " + std::to_string(wavesSpawned), Gfx::W / 2, 232, 20, INK, 1);
+        g.text("Нажмите SELECT, чтобы выйти", Gfx::W / 2, 270, 16, DIM, 1);
+    }
+    if (mode == Mode::Win) {
+        g.fill(0, 0, Gfx::W, Gfx::H, {0, 0, 0, 170});
+        g.text("Победа!", Gfx::W / 2, 170, 40, {240, 210, 90}, 1);
+        g.text("Все стойбища взяты, волн отбито: " + std::to_string(wavesSpawned), Gfx::W / 2, 232, 20, INK, 1);
         g.text("Нажмите SELECT, чтобы выйти", Gfx::W / 2, 270, 16, DIM, 1);
     }
     drawHints(g);

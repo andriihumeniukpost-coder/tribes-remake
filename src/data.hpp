@@ -10,11 +10,12 @@ struct UnitDef { std::string id, name, weapon, needsSkill, buildIn; int hp = 1;
     float speed = 0, dmg = 0, range = 1, reload = 1, splash = 0, minRange = 0, vsBuildings = 1; std::map<std::string, int> cost; };
 struct SkillDef { std::string id, branch, name, desc, unlockBuilding, unlockUnit; int tier = 1, cost = 1; std::vector<std::string> requires; };
 struct EraDef { int id; std::string name; int pop; };
-struct ChapterDef { int id, startEra; std::string title, intro; };
-struct WaveDef { float at = 0; std::vector<std::pair<std::string, int>> units; };
+struct WaveDef { float at = 0; std::vector<std::pair<std::string, int>> units; };  // at — секунд от начала главы
+struct CampDef { int x = 0, y = 0; float hp = 400; std::vector<std::pair<std::string, int>> garrison; };
+struct ChapterDef { int id = 0; std::string title, intro; int attackEra = 3; std::vector<CampDef> camps; std::vector<WaveDef> waves; };
 struct GameData {
     std::vector<BuildingDef> buildings; std::vector<UnitDef> units; std::vector<SkillDef> skills;
-    std::vector<EraDef> eras; std::vector<ChapterDef> chapters; std::vector<WaveDef> waves;
+    std::vector<EraDef> eras; std::vector<ChapterDef> chapters;
     int pointsPerEra = 2;
     bool load(const std::string& dir, std::string& err);
     const BuildingDef* building(const std::string& id) const;

@@ -46,12 +46,19 @@ bool GameData::load(const std::string& dir, std::string& err) {
     if (!readJson(dir + "/eras.json", j, err)) return false;
     for (auto& e : j["eras"]) eras.push_back({e["id"], e["name"], e.value("pop", 10)});
     if (!readJson(dir + "/chapters.json", j, err)) return false;
-    for (auto& c : j["chapters"]) chapters.push_back({c["id"], c.value("start_era", 1), c["title"], c.value("intro", "")});
-    if (!readJson(dir + "/waves.json", j, err)) return false;
-    for (auto& w : j["waves"]) {
-        WaveDef d; d.at = w.value("at", 0.0f);
-        for (auto& kv : w["units"].items()) d.units.push_back({kv.key(), kv.value().get<int>()});
-        waves.push_back(d);
+    for (auto& c : j["chapters"]) {
+        ChapterDef d; d.id = c.value("id", 0); d.title = c.value("title", ""); d.intro = c.value("intro", ""); d.attackEra = c.value("attack_era", 3);
+        if (c.contains("camps")) for (auto& cj : c["camps"]) {
+            CampDef k; k.x = cj.value("x", 0); k.y = cj.value("y", 0); k.hp = cj.value("hp", 400.0f);
+            if (cj.contains("garrison")) for (auto& kv : cj["garrison"].items()) k.garrison.push_back({kv.key(), kv.value().get<int>()});
+            d.camps.push_back(k);
+        }
+        if (c.contains("waves")) for (auto& w : c["waves"]) {
+            WaveDef wd; wd.at = w.value("at", 0.0f);
+            for (auto& kv : w["units"].items()) wd.units.push_back({kv.key(), kv.value().get<int>()});
+            d.waves.push_back(wd);
+        }
+        chapters.push_back(d);
     }
     return true;
 }
