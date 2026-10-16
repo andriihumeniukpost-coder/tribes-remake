@@ -34,6 +34,7 @@ std::string Game::stats() const {
     o += " warriors=" + std::to_string(soldierCount(0)) + " enemies=" + std::to_string(soldierCount(1));
     for (auto& s : soldiers) o += "\n  " + s.def->id + " f" + std::to_string(s.faction) + " hp=" + std::to_string((int)s.hp) + " at(" + std::to_string((int)(s.x / TS)) + "," + std::to_string((int)(s.y / TS)) + ")";
     for (auto& b : buildings) if (!b.alive || b.hp < b.def->hp) o += "\n  bld " + b.def->id + " hp=" + std::to_string((int)b.hp) + (b.alive ? "" : " (руины)");
+    o += "\n  camp hp=" + std::to_string((int)camp.hp) + (camp.captured ? " (взято)" : "") + " chapter=" + std::to_string(chapter) + " attack=" + (attackOrder ? "1" : "0");
     return o;
 }
 void Game::debugUnlock() {
@@ -175,6 +176,13 @@ void Game::damage(int kind, int idx, float amount) {
     if (kind == 0) soldiers[idx].hp -= amount;
     else if (kind == 1) villagers[idx].hp -= amount;
     else if (kind == 2) buildings[idx].hp -= amount;
+    else if (kind == 3) camp.hp -= amount;
+}
+void Game::captureCamp() {
+    camp.captured = true; attackOrder = false;
+    if (const BuildingDef* h = data.building("hut")) addBuilding(*h, camp.x, camp.y);
+    chapter = 2;
+    say("Стойбище взято! Глава 2");
 }
 void Game::cleanup() {
     soldiers.erase(std::remove_if(soldiers.begin(), soldiers.end(), [](const Soldier& s) { return s.hp <= 0; }), soldiers.end());
@@ -210,7 +218,7 @@ void Game::updateSoldiers(float dt) {
         Soldier& s = soldiers[k];
         const UnitDef& u = *s.def;
         s.cd -= dt;
-        float reach = std::max(aggro, u.range * TS);
+        float reach = (attackOrder && s.faction == 0) ? 1e9f : std::max(aggro, u.range * TS);
         struct Tgt { int kind = -1, idx = -1; float d = 1e9f, half = 0, x = 0, y = 0; } best;
         // расстояние до края цели; kind: 0 — боец, 1 — житель, 2 — здание
         auto pick = [&](int kind, int idx, float x, float y, float half) {
@@ -226,9 +234,11 @@ void Game::updateSoldiers(float dt) {
             }
         } else {
             for (size_t j = 0; j < soldiers.size(); j++) if (soldiers[j].faction == 1) pick(0, (int)j, soldiers[j].x, soldiers[j].y, 0);
+            if (attackOrder && !camp.captured && camp.hp > 0)
+                pick(3, 0, (camp.x + 1.0f) * TS, (camp.y + 1.0f) * TS, 1.5f * TS);
         }
-        // свой боец далеко от точки сбора — возвращается, даже если видит врага
-        bool leashed = s.faction == 0 && std::hypot(s.x - s.gx, s.y - s.gy) > leash;
+        // свой боец далеко от точки сбора — возвращается, даже если видит врага (при атаке не возвращается)
+        bool leashed = s.faction == 0 && !attackOrder && std::hypot(s.x - s.gx, s.y - s.gy) > leash;
         if (best.kind < 0 || leashed) {
             if (s.faction == 1) { const Placed& c = buildings[0]; moveTo(s, (c.x + 1.5f) * TS, (c.y + 1) * TS, dt, 2.0f * TS); }
             else moveTo(s, s.gx, s.gy, dt, 4.0f);
@@ -238,7 +248,7 @@ void Game::updateSoldiers(float dt) {
         if (best.d < u.minRange * TS) continue;
         if (s.cd > 0) continue;
         s.cd = u.reload;
-        float dmg = u.dmg * (best.kind == 2 ? u.vsBuildings : 1.0f);
+        float dmg = u.dmg * ((best.kind == 2 || best.kind == 3) ? u.vsBuildings : 1.0f);
         int tkind = best.kind, tidx = best.idx;
         float ix = best.x, iy = best.y;
         damage(tkind, tidx, dmg);
@@ -253,6 +263,7 @@ void Game::updateSoldiers(float dt) {
         fxs.push_back({ix, iy, 0.35f, u.splash > 0 ? u.splash * TS : 6.0f,
                        u.splash > 0 ? Color{230, 140, 60} : Color{255, 240, 160}});
     }
+    if (!camp.captured && camp.hp <= 0) captureCamp();
     cleanup();
 }
 
@@ -271,6 +282,10 @@ void Game::update(const Input& in, float dt) {
         if (in.pressed[SELECT]) tryAdvanceEra();
         if (in.pressed[START]) mode = Mode::Pause;
         if (in.pressed[A]) tryTrain();
+        if (in.pressed[L1] && era >= 3 && !camp.captured) {
+            attackOrder = !attackOrder;
+            say(attackOrder ? "Приказ: атаковать стойбище" : "Приказ: вернуться к вождю");
+        }
         foodTimer += dt;
         if (foodTimer >= 5) { foodTimer = 0; res["food"] += 2 + (hasBuilding("kitchen") ? 4 : 0) + (learned.count("fire_kitchen") ? 2 : 0); }
         eraTimer += dt;
@@ -334,6 +349,18 @@ void Game::drawMap(Gfx& g) {
             g.fill(sx + 4, sy + h - 8, (int)((w - 8) * f), 4, {120, 220, 90});
         }
     }
+    if (!camp.captured) {
+        // стойбище людоедов: три шалаша и полоска здоровья (графика собственная, простые фигуры)
+        int sx = camp.x * TS - camX, sy = camp.y * TS - camY + 28;
+        for (int i = 0; i < 3; i++) {
+            int hx = sx + i * 40, hy = sy + (i == 1 ? 0 : 20);
+            g.fill(hx + 4, hy + 4, 30, 26, {120, 80, 50});
+            g.fill(hx + 12, hy + 14, 14, 16, {50, 30, 20});
+        }
+        g.fill(sx, sy - 8, 100, 5, {60, 0, 0});
+        g.fill(sx, sy - 8, (int)(100 * std::max(0.0f, camp.hp) / camp.maxhp), 5, {220, 80, 60});
+        g.text("Стойбище", sx + 50, sy - 22, 12, {255, 220, 200}, 1);
+    }
     for (auto& v : villagers) {
         int sx = (int)v.x - camX, sy = (int)v.y - camY + 28;
         g.fill(sx - 4, sy - 8, 8, 12, {230, 190, 140}); g.fill(sx - 5, sy - 10, 10, 4, {80, 50, 30});
@@ -373,6 +400,11 @@ void Game::drawHud(Gfx& g) {
     g.text("Жители " + std::to_string(villagers.size()) + "/" + std::to_string(housing()), 326, 5, 16, INK);
     g.text("Воины " + std::to_string(soldierCount(0)), 460, 5, 16, INK);
     g.text("Эпоха " + std::to_string(era), Gfx::W - 8, 5, 16, EDGE, 2);
+    std::string goal = camp.captured ? "Глава " + std::to_string(chapter) + ": стойбище взято"
+                     : era < 3 ? "Глава 1: отбить волны и развиваться до 3 эпохи"
+                     : attackOrder ? "Глава 1: идёт атака на стойбище людоедов"
+                     : "Глава 1: нажмите L1, чтобы атаковать стойбище людоедов";
+    g.text(goal, 8, 32, 14, EDGE);
     if (toastT > 0) { int w = g.textWidth(toast, 18) + 24; g.panel(Gfx::W / 2 - w / 2, 48, w, 30, PANEL, EDGE); g.text(toast, Gfx::W / 2, 52, 18, INK, 1); }
 }
 void Game::drawHints(Gfx& g) {
@@ -383,6 +415,7 @@ void Game::drawHints(Gfx& g) {
         hs = {{"X", "Строить", {90, 140, 230}}, {"Y", "Умения", {240, 200, 70}}, {"SEL", "Эпоха", {200, 200, 200}}, {"STA", "Пауза", {200, 200, 200}}};
         int bi = buildingAt(cx, cy);
         if (bi >= 0 && !buildings[bi].def->trains.empty()) hs.push_back({"A", "Обучить", {90, 200, 110}});
+        if (era >= 3 && !camp.captured) hs.push_back({"L1", attackOrder ? "Отозвать" : "Атака", {230, 120, 60}});
     }
     else if (mode == Mode::Build) hs = {{"A", "Построить", {90, 200, 110}}, {"B", "Назад", {230, 90, 90}}};
     else if (mode == Mode::Skills) hs = {{"A", "Изучить", {90, 200, 110}}, {"B", "Назад", {230, 90, 90}}};
