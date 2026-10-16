@@ -48,6 +48,8 @@ bool GameData::load(const std::string& dir, std::string& err) {
     if (!readJson(dir + "/chapters.json", j, err)) return false;
     for (auto& c : j["chapters"]) {
         ChapterDef d; d.id = c.value("id", 0); d.title = c.value("title", ""); d.intro = c.value("intro", ""); d.attackEra = c.value("attack_era", 3);
+        d.startEra = c.value("start_era", 1); d.startAllSkills = c.value("start_all_skills", false);
+        if (c.contains("start_res")) for (auto& kv : c["start_res"].items()) d.startRes[kv.key()] = kv.value().get<int>();
         if (c.contains("camps")) for (auto& cj : c["camps"]) {
             CampDef k; k.x = cj.value("x", 0); k.y = cj.value("y", 0); k.hp = cj.value("hp", 400.0f);
             if (cj.contains("garrison")) for (auto& kv : cj["garrison"].items()) k.garrison.push_back({kv.key(), kv.value().get<int>()});

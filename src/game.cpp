@@ -15,7 +15,7 @@ static std::string resName(const std::string& r) {
     return r;
 }
 
-bool Game::init(const std::string& dir) {
+bool Game::init(const std::string& dir, int chapterIndex) {
     std::string err;
     if (!data.load(dir, err)) { fprintf(stderr, "data: %s\n", err.c_str()); return false; }
     srand(7);
@@ -27,7 +27,8 @@ bool Game::init(const std::string& dir) {
     for (int x = 17; x < 24; x++) for (int y = 12; y < 19; y++) map[x][y] = GRASS;
     addBuilding(*data.building("chief_hut"), 19, 14);
     for (int i = 0; i < 4; i++) spawnVillager();
-    loadChapter(0);
+    if (chapterIndex < 0 || chapterIndex >= (int)data.chapters.size()) chapterIndex = 0;
+    loadChapter(chapterIndex);
     return true;
 }
 std::string Game::stats() const {
@@ -182,6 +183,10 @@ void Game::damage(int kind, int idx, float amount) {
 }
 void Game::loadChapter(int idx) {
     chapterIdx = idx; camps.clear(); nextWave = 0; chapterStart = gameTime; attackOrder = false;
+    // стартовое состояние главы: эпоха, все умения, запас ресурсов
+    if (chapter().startEra > era) era = std::min(chapter().startEra, (int)data.eras.size());
+    if (chapter().startAllSkills) for (auto& s : data.skills) learned.insert(s.id);
+    for (auto& kv : chapter().startRes) res[kv.first] = std::max(res[kv.first], kv.second);
     for (auto& cd : chapter().camps) {
         Camp c; c.x = cd.x; c.y = cd.y; c.hp = c.maxhp = cd.hp;
         int ci = (int)camps.size();

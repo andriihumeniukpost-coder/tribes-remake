@@ -106,6 +106,7 @@ static void emLoop() { frameStep(); if (g_done) emscripten_cancel_main_loop(); }
 int main(int argc, char** argv) {
     std::string dataDir = "data", fontPath = "assets/fonts/ui.ttf", script, shots;
     bool forceTouch = false;
+    int chapterArg = 0;
     for (int i = 1; i < argc; i++) {
         std::string a = argv[i];
         if (a == "--headless") headless = true;
@@ -115,11 +116,12 @@ int main(int argc, char** argv) {
         else if (a == "--script" && i + 1 < argc) script = argv[++i];   // "30:X 40:DOWN"
         else if (a == "--shots" && i + 1 < argc) shots = argv[++i];     // "60:out.png"
         else if (a == "--frames" && i + 1 < argc) maxFrames = atoi(argv[++i]);
+        else if (a == "--chapter" && i + 1 < argc) chapterArg = atoi(argv[++i]) - 1;   // номер главы с 1
     }
     touchSeen = forceTouch;
     if (!gfx.init(headless)) return 1;
     if (!gfx.loadFont(fontPath)) { fprintf(stderr, "нет шрифта %s\n", fontPath.c_str()); return 1; }
-    if (!game.init(dataDir)) return 1;
+    if (!game.init(dataDir, chapterArg)) return 1;
     if (debugMode) game.debugUnlock();
     SDL_GameController* pad = nullptr;
     for (int i = 0; i < SDL_NumJoysticks(); i++) if (SDL_IsGameController(i)) { pad = SDL_GameControllerOpen(i); break; }

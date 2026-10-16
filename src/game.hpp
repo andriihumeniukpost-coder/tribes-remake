@@ -21,7 +21,7 @@ struct Camp { int x = 0, y = 0; float hp = 400, maxhp = 400; bool captured = fal
 class Game {
 public:
     static constexpr int MW = 40, MH = 30, TS = 32;
-    bool init(const std::string& dataDir);
+    bool init(const std::string& dataDir, int chapterIndex = 0);
     void debugUnlock();
     void update(const Input& in, float dt);
     void draw(Gfx& g);

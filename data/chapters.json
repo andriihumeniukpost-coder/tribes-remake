@@ -18,5 +18,13 @@
    {"at":130,"units":{"clubman":4,"slinger":3,"spearman":2}},
    {"at":210,"units":{"clubman":5,"slinger":4,"spearman":3}},
    {"at":300,"units":{"clubman":6,"slinger":5,"spearman":4}}
+  ]},
+ {"id":3,"title":"Осада крепости","intro":"Всё племя в твоих руках: все постройки, оружие и умения. Возьми крепость врага.","attack_era":5,
+  "start_era":5,"start_all_skills":true,"start_res":{"wood":400,"stone":300,"food":300},
+  "camps":[{"x":33,"y":24,"hp":1200,"garrison":{"clubman":6,"spearman":6,"slinger":4}}],
+  "waves":[
+   {"at":60,"units":{"clubman":4,"slinger":3,"spearman":3}},
+   {"at":150,"units":{"clubman":6,"slinger":4,"spearman":4}},
+   {"at":260,"units":{"clubman":8,"slinger":5,"spearman":5}}
   ]}
 ]}

@@ -12,7 +12,9 @@ struct SkillDef { std::string id, branch, name, desc, unlockBuilding, unlockUnit
 struct EraDef { int id; std::string name; int pop; };
 struct WaveDef { float at = 0; std::vector<std::pair<std::string, int>> units; };  // at — секунд от начала главы
 struct CampDef { int x = 0, y = 0; float hp = 400; std::vector<std::pair<std::string, int>> garrison; };
-struct ChapterDef { int id = 0; std::string title, intro; int attackEra = 3; std::vector<CampDef> camps; std::vector<WaveDef> waves; };
+// start_era / start_all_skills / start_res — стартовое состояние главы (для среза конца игры)
+struct ChapterDef { int id = 0; std::string title, intro; int attackEra = 3; int startEra = 1; bool startAllSkills = false;
+    std::map<std::string, int> startRes; std::vector<CampDef> camps; std::vector<WaveDef> waves; };
 struct GameData {
     std::vector<BuildingDef> buildings; std::vector<UnitDef> units; std::vector<SkillDef> skills;
     std::vector<EraDef> eras; std::vector<ChapterDef> chapters;
